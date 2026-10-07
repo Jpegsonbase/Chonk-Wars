@@ -42,7 +42,7 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--skin); outl
 .br { bottom: calc(14px + env(safe-area-inset-bottom, 0px)); right: 16px; flex-direction: column; align-items: flex-end; }
 
 .brand { display: flex; align-items: center; gap: 10px; border-radius: 999px; padding: 7px 14px 7px 9px; }
-.brand .cube { width: 16px; height: 16px; background: var(--skin); box-shadow: inset -4px -4px 0 var(--skin-deep); flex: none; }
+.brand .cube { cursor: pointer; width: 16px; height: 16px; background: var(--skin); box-shadow: inset -4px -4px 0 var(--skin-deep); flex: none; }
 .brand b { font: 400 13px var(--display); letter-spacing: .02em; white-space: nowrap; font-weight: 400; }
 .badge { font: 500 10px var(--mono); letter-spacing: .08em; padding: 3px 7px; border-radius: 999px; background: rgba(255,255,255,.08); color: var(--muted); white-space: nowrap; }
 .badge.live { background: rgba(70,224,143,.16); color: var(--buy); }
@@ -358,6 +358,12 @@ const getBlock = async () => parseInt(await callOne({ jsonrpc: "2.0", id: 1, met
 const getWallet = async (addr) => decodeUintArray(await callOne(ethCall(SEL.wallet + addr.slice(2).toLowerCase().padStart(64, "0"))));
 
 /* Sample Chonks (real onchain zMaps, packed) used only when the chain can't be reached */
+const NAKED_BODY = "0b170500c17050101705011170500b160500c160500d160500f16050101605011160500b150500c150500d150500e150500f150501015050111505009140500a140510b140500c140500d140500e140500f14050101405011140501214051131405009130500a130510b130500c130500d130500e130500f13050101305011130501213051131305009120500a120500b120500c120510d120500e120500f1205010120511112050121205013120500a110500b110500c110500d110500e110500f110501011050111105012110500b170600c17060101706011170600b150400c150400d150400e150400f15040101504011150400b140400c140400d140400e140400f14040101404011140400b130400c130400d130400e130400f13040101304011130400b120400c120400d120400e120400f12040101204011120400b110400c110400d110400e110400f11040101104011110400b100510c100510d100510e100510f10051101005111100510b100410c100410d100410e100410f10041101004111100410b0f0500c0f0500d0f0500e0f0500f0f050100f050110f050120f0500a0e0500b0e0500c0e0500d0e0500e0e0500f0e050100e050110e050120e050130e0500a0d0500b0d0500c0d0500d0d0500e0d0500f0d050100d050110d050120d050130d0500a0c0500b0c0500c0c0500d0c0500e0c0500f0c050100c050110c050120c050130c0500a0b0500b0b0500c0b0500d0b0500e0b0500f0b050100b050110b050120b050130b0500a0a0500b0a0500c0a0500d0a0500e0a0500f0a050100a050110a050120a050130a0500b090500c090500d090500e090500f090501009050110905012090500b0f0400c0f0400d0f0400e0f0400f0f040100f040110f040120f0400a0e0400b0e0400c0e0400d0e0400e0e0400f0e040100e040110e040120e040130e0400a0d0400b0d0400c0d0400d0d0400e0d0400f0d040100d040110d040120d040130d0400a0c0400b0c0400c0c0400d0c0400e0c0400f0c040100c040110c040120c040130c0400a0b0400b0b0400c0b0400d0b0400e0b0400f0b040100b040110b040120b040130b0400a0a0400b0a0400c0a0400d0a0400e0a0400f0a040100a040110a040120a040130a0400b090400c090400d090400e090400f090401009040110904012090400b0f0300c0f0300d0f0300e0f0300f0f030100f030110f0300a0e0300b0e0300c0e0300d0e0300e0e0300f0e030100e030110e030120e030130e0300a0d0300b0d0300c0d0300d0d0300e0d0300f0d030100d030110d030120d030130d0300a0c0300b0c0300c0c0300d0c0300e0c0300f0c030100c030110c030120c030130c0300a0b0300b0b0300c0b0300d0b0300e0b0300f0b030100b030110b030120b030130b0300b0a0300c0a0300d0a0300e0a0300f0a030100a030110a030120a0300b0f0600c0f0600d0f0600e0f0600f0f060100f060110f060120f0600a0e0600b0e0600c0e0600d0e0600e0e0600f0e060100e060110e060120e060130e0600a0d0600b0d0600c0d0620d0d0630e0d0610f0d061100d061110d062120d063130d0600a0c0600b0c0600c0c0620d0c0630e0c0600f0c060100c060110c062120c063130c0600a0b0600b0b0600c0b0600d0b0600e0b0600f0b060100b060110b060120b060130b0600a0a0600b0a0600c0a0600d0a0600e0a0600f0a060100a060110a060120a060130a0600b090600c090600d090600e090600f09060100906011090601209060090d051090c051";
+function nakedVoxels() {
+  const pal = [0xefb15e, 0xd69743, 0xffffff, 0x000000], out = [];
+  for (let i = 0; i + 7 <= NAKED_BODY.length; i += 7) out.push({ x: parseInt(NAKED_BODY.slice(i, i + 2), 16), y: parseInt(NAKED_BODY.slice(i + 2, i + 4), 16), z: parseInt(NAKED_BODY.slice(i + 4, i + 6), 16), color: pal[+NAKED_BODY[i + 6]] });
+  return out;
+}
 const SAMPLES = {"1": {"b64": "xZJLCsIwFEVvPy95LwiCYweCGyidWhwobsNtOXMPbsZtuIRK/gq2FkQ9lHASCM1pI6qaLcgA6Lqubdvb5Xg97c9z9H2/bJr17rDabDGMeB7UTjgB1Ilpjmw/xuQWE45vJyz+QLYrHvODLhdGHvda5ZnspWe8JX1+gONSVucPLSzyqosGfFKXUlqHQ6vkCloH1xo1BSe7uSpL+8RGxMaiiMPI/xKxufYeQ4SNY+we6qJ2g3ciCj7Q9Q0Gu57JPxKhi/My87vt/+QO"}, "3": {"b64": "zZKxDcIwEEUvuZwdJxYNJRJVlqACRmAB1mAHJmAfajoqKnqgYgAjx46xk0ACAimvON2TE1n/y4JwNCZ5hMnteonmZ5gdtutis5oWO7jvk1O2UEoBgIIl/AhhCcQoOboM/H3Q+GkhSCuqQKF1Zm9vwlbBDPZy5BqszNDD4kQTf5u2R/b2JqhhjF7bB01w2wQvhadl2JTz0mz20ohZY2SbwARdEzEiIFYWRdWwSI3bvSakO5US5PNzPfo2AYKynEgPEzbLGWPO3jTxfxpNhNTfRHDQ74V4PwH4e90GxAM="}, "23": {"b64": "xZGxDsIgEIZP4QpYJp3dXFyZNOni6DMY39TdlzB9Bh2cMRyIV0OTNqbxJ718NLTclzOVsEu0m925bVvnXNM0AHC9nI5utV3Xz8f9BnvvvYcDjM4ihWHY9LHKgbwZf+lE6bik5kL/qsCq61LyIjEdQ/83MYNZxvzuwmfBXLIMaNY/50FexiAtQ91jeiJjZKXTex0+RokVSqQ+hZQgpSCezd8lx1LJ4QiWz+Xj8jWjGhWVyFrrxD1eU6TgNWxgAfkJxlDmP+UF"}, "42": {"b64": "rZIxDsIwDEUNaW2Kw8BF2ChjRxZmBiSOwAmYWDgER+EAHIOBE4CEULcix0kTJBBU4leKXt3UfpFSkOFxPgKAqqqW29l8Xa720+OuPGwmt0e9ODV1XV/OcL9C0zTwPewTibkTJh1A3tyjrX8Y3znpXNQwKHFA9tWwI2x4QcvApBHlwhULkR5qZFqhEUyqeWZyk+VdhB1ZF1FvdVpKEVOMHH+Trl4dAL06AuJAg4jk1QmRfJVQ1TNjRMeYDPwpev2wgDraV9+I/E5deNRDlMUhEQnaD+r/vA+JOnBoHS6JjRfV2vYr2EShG7b81zM8AQ=="}, "123": {"b64": "xZJBDoIwEEUHmIF26MqjsGZn3HMCT6QLN3oOV56AeAOXbDyAJzCYgUJLAjYkJr40k5emi//b6jTJN2R2p2dZlkVRvK77x2XbNA0A1HV9qw7F8d227b06wyq0xZnWYYVR/oiXBi16VtFXdArOIO2BlRr3fItpZBmRATDuJj2djc44p8stiIgkmbIhFSjRTFSpcVch2V1CgCSOZdlCYAtF0TACD+B/numHGaNrzDNEGSBKRKKu0qTFTwm2CMLM3A1mTrN+AHTT6nDgh7GX+AA="}, "404": {"b64": "tZIxTgQxDEUN6zDOn7HQ1pyAYinhFlyCmoYTQA8VVNRbI9FSsAUlHIALII4xKHayyexCgQRfI42f4mTyNJZupnPWeHkW7y72H6+fro7vz48O3pYnnyt9vl3cvB6+P4zjSESnHy9ERICqkgcgAMi1AIUgECkkZcWg1LA9FdZNE7CjJb//Pjs17pDkNPt4dCKnRY6ZOcux1S7HBRS8DmluMkAFOyx47DNUF4iIuy49Dp3HYc/jMPNYvVsycTO7n+TQyqGVQ5FLEKW5NiI3IN/CllzTlTxdLhGHLBcMslzgX8htjGWdne2x3Pxzdh+RfmDmfkgQuR9CCA6tHLVyJP80lNOx/AI="}};
 async function unpackSample(id) {
   const bin = Uint8Array.from(atob(SAMPLES[id].b64), (c) => c.charCodeAt(0));
@@ -761,6 +767,56 @@ function explode(b) {
   cam.shake = Math.max(cam.shake, 1.8); ME.flow += (b.team === 0 ? 1 : -1) * 2.5; sfx("bomb");
   feed(`<span class="${b.team ? "r" : "g"}">💥 bomb took out ${victims.length}</span> <span class="m">${b.team ? "Diamond" : "Paper"} Chonk${victims.length === 1 ? "" : "s"}</span>`);
 }
+/* easter egg: type "chonk" and a giant naked Chonk stampedes across the field */
+let giant = null, giantType = null, giantCooldown = 0;
+function summonGiant() {
+  if (giant || performance.now() < giantCooldown || !ME.mid) return;
+  giantType ??= new ChonkType(0, nakedVoxels(), 1, scene);
+  const x = rnd(-10, 10);
+  giant = { type: giantType, pos: new THREE.Vector3(x, 0, ME.frontZ - 75), yaw: 0, anim: "run", phase: 0, scale: 11, throwT: -1, stagger: 0, tilt: 0, cheerT: 0, crushed: 0, lastStep: 0, t: 0, state: "alive" };
+  bigEvent("CHONK!", "A giant naked Chonk is stampeding", null);
+  feed(`<span class="w">👣 a giant naked Chonk appears</span>`);
+  if (cam.mode === "cine" || cam.mode === "follow") cam.mode = "cine";
+  sfx("whistle");
+}
+function stepGiant(dt) {
+  if (!giant) return;
+  const g = giant; g.t += dt;
+  g.pos.z += 15 * dt;
+  // footsteps: each time a foot comes down, shake and kick up dirt
+  const st = Math.sign(Math.sin(g.t * 16));
+  if (st !== g.lastStep) {
+    g.lastStep = st;
+    cam.shake = Math.max(cam.shake, .9); sfx("boom");
+    burst(_v.set(g.pos.x + st * 1.4, .3, g.pos.z), [new THREE.Color(0x8a6a45), new THREE.Color(0x6e8a3e), new THREE.Color(0xa58a5a)], 26, 1.3, .2);
+  }
+  // crush anyone under or just in front of it, from either side
+  const R = 4.6;
+  for (const t of [0, 1]) for (const v of [...members[t]]) {
+    const dx = v.pos.x - g.pos.x, dz = v.pos.z - g.pos.z;
+    if (dx * dx + dz * dz < R * R || (Math.abs(dx) < R && dz > 0 && dz < 2.5)) {
+      killSoldier(v, _v2.set(dx || rnd(-1, 1), 0, 1.5), null);
+      v.vel.multiplyScalar(2.2).setY(rnd(8, 12)); g.crushed++;
+    }
+  }
+  if (cam.mode === "cine") cam.focus = { x: g.pos.x, z: g.pos.z + 4, r: 58, h: 24, ly: 7, until: performance.now() + 600 };   // pull well back to fit a 20-unit-tall Chonk
+  if (g.pos.z > ME.frontZ + 80) {
+    feed(`<span class="w">👣 the naked Chonk flattened ${g.crushed} Chonk${g.crushed === 1 ? "" : "s"}</span>`);
+    giant = null; giantCooldown = performance.now() + 8000;
+    giantType.n = 0; finishType(giantType);
+  }
+}
+const typed = [];
+addEventListener("keydown", (e) => {
+  if (e.target.tagName === "INPUT" || e.key.length !== 1) return;
+  typed.push(e.key.toLowerCase()); if (typed.length > 5) typed.shift();
+  if (typed.join("") === "chonk") { typed.length = 0; summonGiant(); }
+});
+let logoTaps = [];
+document.querySelector(".brand .cube").addEventListener("click", () => {
+  const now = performance.now(); logoTaps = logoTaps.filter((t) => now - t < 2500); logoTaps.push(now);
+  if (logoTaps.length >= 5) { logoTaps = []; summonGiant(); }
+});
 function stepBombs(dt) {
   for (let i = planes.length - 1; i >= 0; i--) {
     const p = planes[i]; p.t += dt; p.g.position.x += p.dir * 42 * dt; p.g.rotation.x = Math.sin(p.t * 2) * .06;
@@ -1206,9 +1262,9 @@ function updateCamera(dt, now) {
     const f = cam.focus && now < cam.focus.until ? cam.focus : null;
     const cx = f ? f.x : 0, cz = f ? f.z : ME.frontZ;
     // sweep back and forth on the −X side only, so green stays left and red stays right
-    const a = -Math.PI / 2 + .55 * Math.sin(cam.t * .06), r = f ? 22 : 30 + 8 * Math.sin(cam.t * .11), h = f ? 13 : 11 + 6 * Math.sin(cam.t * .17 + 1);
+    const a = -Math.PI / 2 + .55 * Math.sin(cam.t * .06), r = f ? f.r ?? 22 : 30 + 8 * Math.sin(cam.t * .11), h = f ? f.h ?? 13 : 11 + 6 * Math.sin(cam.t * .17 + 1);
     _camPos.set(cx + Math.sin(a) * r, h, cz + Math.cos(a) * r);
-    _look.set(cx * .6, 1, cz);
+    _look.set(cx * .6, f?.ly ?? 1, cz);
     camera.position.lerp(_camPos, 1 - Math.exp(-dt * 1.5)); cam.look.lerp(_look, 1 - Math.exp(-dt * 2.5)); camera.lookAt(cam.look);
   } else if (cam.mode === "play") {
     const s = player.s;
@@ -1551,7 +1607,7 @@ function step(dt, now) {
     if (fire(t, shotSize)) { pressure[t] -= shotSize; shotBudget--; } else break;
   }
   pressure[0] = Math.min(pressure[0], shotSize * 30); pressure[1] = Math.min(pressure[1], shotSize * 30);
-  checkJump(now); stepBombs(dt);
+  checkJump(now); stepBombs(dt); stepGiant(dt);
   if (whaleQ.length && now - lastWhale > 3500) { const w = whaleQ.shift(); lastWhale = now; whale(w.team, w.notional); }
   if (whaleQ.length > 4) whaleQ.splice(0, whaleQ.length - 4);
 
@@ -1665,6 +1721,7 @@ function step(dt, now) {
 
 function writeInstances(t) {
   for (const h of heroes) h.type.n = 0;
+  if (giant) { giant.type.n = 0; poseSoldier(giant, t); for (const p of PARTS) { const m = giant.type.meshes[p]; if (m) m.setMatrixAt(0, POSER.b[PART_BONE[p]].matrixWorld); } giant.type.n = 1; }
   const bm = army?.mesh;
   let dn = [0, 0], rn = 0, qn = [0, 0];
   const all = [members[0], members[1], fallen];
@@ -1699,6 +1756,7 @@ function writeInstances(t) {
     }
   }
   for (const h of heroes) finishType(h.type);
+  if (giant) finishType(giant.type);
   discs.forEach((d, i) => { d.count = dn[i]; d.instanceMatrix.needsUpdate = true; });
   rings.count = rn; rings.instanceMatrix.needsUpdate = true;
   rangeRings.forEach((m, i) => { m.count = qn[i]; m.instanceMatrix.needsUpdate = true; });
