@@ -892,17 +892,19 @@ const fallen = [];        // dead and retreating soldiers still on screen
 const stats = [{ kos: 0 }, { kos: 0 }];
 const MELEE_R = 1.25, AGGRO = 18, HP = 4, HERO_HP = 10, RANGE = 16;
 const OVERSTEP = 1.6;   // how far past the frontline a fighter may step
+const MAX_DUELS = 24;   // brawlers per side allowed in close combat at once
+const LANE = 7;         // how far sideways from its own lane a brawler will go for a fight
 const BAND = 5;         // only enemies this close to the line are worth chasing
 function newSoldier(team, type, hero = false) {
   return { team, type, hero, pos: new THREE.Vector3(), yaw: team ? Math.PI : 0, anim: "run", phase: rnd(10), throwT: -1, throwArm: null, victim: null, released: false,
-    atkKind: "melee", atkDur: .42, atkRel: .24, role: "melee", standoff: rnd(6, 10), atkCd: rnd(.2, .8), target: null, retarget: 0, homeX: rnd(-24, 24), hp: hero ? HERO_HP : HP,
+    atkKind: "melee", atkDur: .42, atkRel: .24, role: "melee", standoff: rnd(6, 10), atkCd: rnd(.2, .8), target: null, retarget: 0, homeX: rnd(-26, 26), holdZ: rnd(2.6, 5.5), hp: hero ? HERO_HP : HP,
     stagger: 0, tilt: 0, kills: 0, deathT: 0, vel: new THREE.Vector3(), scale: hero ? 1.45 : 1, state: "alive", cheerT: 0, born: performance.now() };
 }
 function spawn(team, atBack = true) {
   const r = reserve[team]; if (!r.length) return null;
   const k = (Math.random() * r.length) | 0, s = r[k]; r[k] = r[r.length - 1]; r.pop();
   Object.assign(s, { state: "alive", tilt: 0, throwT: -1, cheerT: 0, stagger: 0, anim: "run", released: false, victim: null, deathT: 0,
-    hp: HP, target: null, retarget: 0, atkCd: rnd(.2, .8), homeX: rnd(-24, 24) });
+    hp: HP, target: null, retarget: 0, atkCd: rnd(.2, .8), homeX: rnd(-26, 26), holdZ: rnd(2.6, 5.5) });
   // everyone enters at a run from their own side and heads straight for a fight
   const dir = team ? 1 : -1;
   s.pos.set(rnd(-24, 24), 0, ME.frontZ + dir * (atBack ? rnd(16, 26) : rnd(10, 24)));
@@ -922,12 +924,18 @@ function nearestEnemy(s, maxD) {
   return best;
 }
 // nearest enemy, but avoid piling onto one already being mobbed
+// one-on-one: an enemy already in a duel is off limits, unless it's the one fighting me.
+// brawlers stay near their own lane so fights spread along the whole line
 function pickTarget(s) {
   let best = null, bs = Infinity;
   for (const e of members[1 - s.team]) {
+    if (e.role === "ranged" && !e.player) continue;          // throwers hang back; leave them to the throwers
+    const cap = e.hero || e.player ? 2 : 1;
+    if ((e.engaged || 0) >= cap && e.target !== s) continue;
+    const lx = e.pos.x - s.homeX; if (Math.abs(lx) > LANE) continue;
     const dx = e.pos.x - s.pos.x, dz = e.pos.z - s.pos.z, d = dx * dx + dz * dz;
     if (d > AGGRO * AGGRO || Math.abs(e.pos.z - ME.frontZ) > BAND) continue;
-    const sc = d * (1 + .8 * (e.engaged || 0));
+    const sc = d + 1.5 * lx * lx;
     if (sc < bs) { bs = sc; best = e; }
   }
   return best;
@@ -1553,7 +1561,8 @@ function step(dt, now) {
 
   // brawl: every fighter picks a target, runs at it, and swings when in reach
   for (const t of [0, 1]) for (const e of members[t]) e.engaged = 0;
-  for (const t of [0, 1]) for (const s of members[t]) if (s.target?.state === "alive") s.target.engaged++;
+  const duels = [0, 0];
+  for (const t of [0, 1]) for (const s of members[t]) if (s.role !== "ranged" && !s.player && s.target?.state === "alive") { s.target.engaged++; duels[t]++; }
   for (const t of [0, 1]) {
     const arr = members[t], home = t ? 1 : -1;
     for (let i = 0; i < arr.length; i++) {
@@ -1568,10 +1577,20 @@ function step(dt, now) {
       }
       if (s.cheerT > 0) { s.cheerT -= dt; s.anim = "cheer"; continue; }
       const ranged = s.role === "ranged";
-      if (s.retarget <= 0 || s.target?.state !== "alive") { s.target = ranged ? nearestEnemy(s, RANGE) : pickTarget(s); s.retarget = rnd(.35, .75); }
+      if (s.retarget <= 0 || s.target?.state !== "alive") {
+        const had = s.target?.state === "alive" ? s.target : null;
+        if (ranged) s.target = nearestEnemy(s, RANGE);
+        else if (had && had.target === s) s.target = had;                 // already locked in a duel: see it through
+        else {
+          if (had) { had.engaged--; duels[t]--; }
+          s.target = duels[t] < MAX_DUELS || s.hero ? pickTarget(s) : null; // too many brawling: hold the line
+          if (s.target) { s.target.engaged = (s.target.engaged || 0) + 1; duels[t]++; }
+        }
+        s.retarget = rnd(.35, .75);
+      }
       const tg = s.target;
       // brawlers run at their target; throwers hold a spot behind the brawl in their own lane
-      const gx = ranged || !tg ? s.homeX : tg.pos.x, gz = ranged ? ME.frontZ + home * s.standoff : tg ? tg.pos.z : ME.frontZ + home * 1.2;
+      const gx = ranged || !tg ? s.homeX : tg.pos.x, gz = ranged ? ME.frontZ + home * s.standoff : tg ? tg.pos.z : ME.frontZ + home * s.holdZ;
       const dx = gx - s.pos.x, dz = gz - s.pos.z, d = Math.hypot(dx, dz);
       const tdx = tg ? tg.pos.x - s.pos.x : 0, tdz = tg ? tg.pos.z - s.pos.z : 0, td = Math.hypot(tdx, tdz);
       // forward means toward the enemy (−home); a goal behind you is ignored on that axis
