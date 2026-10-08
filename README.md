@@ -17,7 +17,7 @@ No images and no indexer. Every soldier is rebuilt in the browser from voxel dat
 - Every distinct look in the wallet is used before any lookalike, so all 200 soldiers are different tokens.
 - Animated with the same rig and walk cycle as the Chonks playground, and drawn as one batched mesh.
 
-Want your own army? Add `?wallet=0xYourAddress` to the link (or use **Army & heroes → Your army**) and every soldier comes from that wallet.
+Want your own army? Add `?wallet=0xYourAddress` to the link (or use **Army & heroes → Your army**) and every soldier comes from that wallet. ENS names (`?wallet=name.eth`) and Basenames (`?wallet=name.base.eth`) work too.
 
 If Base can't be reached, it falls back to six built-in sample Chonks.
 

@@ -264,15 +264,15 @@ body.playing #stage canvas { cursor: crosshair; }
 <div id="panel" class="glass" hidden>
   <section>
     <h2>Your army</h2>
-    <p>Fight with only your Chonks. Both sides are rebuilt from this wallet, and the page link saves it so you can share your army.</p>
-    <input type="text" id="armyInput" placeholder="Your wallet 0x…" autocomplete="off" spellcheck="false" aria-label="Your wallet address">
+    <p>Fight with only your Chonks. Paste a wallet, ENS name or Basename. Both sides are rebuilt from it, and the page link saves it so you can share your army.</p>
+    <input type="text" id="armyInput" placeholder="0x…, name.eth or name.base.eth" autocomplete="off" spellcheck="false" aria-label="Your wallet address">
     <div class="panel-actions"><button type="button" class="btn" id="armyReset">Default army</button><button type="button" class="btn primary" id="armyGo">Use my Chonks</button></div>
     <button type="button" class="btn" id="redraft">Reshuffle sides</button>
   </section>
   <section>
     <h2>Enlist a hero</h2>
-    <p>Add any token ID, or every Chonk in a wallet, to the front line as a bigger hero.</p>
-    <input type="text" id="enlistInput" placeholder="e.g. 1337 or 0x…" autocomplete="off" spellcheck="false" aria-label="Token ID or wallet">
+    <p>Add any token ID, or up to 12 Chonks from a wallet, ENS name or Basename, to the front line as bigger heroes.</p>
+    <input type="text" id="enlistInput" placeholder="1337, 0x…, name.eth or name.base.eth" autocomplete="off" spellcheck="false" aria-label="Token ID or wallet">
     <div class="seg" id="sideSeg"><button type="button" class="on b" data-side="0">Diamond · buy</button><button type="button" data-side="1">Paper · sell</button></div>
     <button type="button" class="btn primary" id="enlistGo">Enlist</button>
   </section>
@@ -390,6 +390,45 @@ async function readZMaps(ids, onOne) {
   }
   return got;
 }
+/* ENS (.eth, on Ethereum) and Basenames (.base.eth, on Base) */
+const ENS_REGISTRY = "0x00000000000C2E074eC69A0dFb2997BA6C7d2e1e";
+const BASENAME_REGISTRY = "0xb94704422c2a1e396835a571837aa5ae53285a95";
+const ETH_RPCS = ["https://ethereum-rpc.publicnode.com", "https://eth.drpc.org", "https://rpc.ankr.com/eth"];
+const isAddr = (v) => /^0x[0-9a-fA-F]{40}$/.test(v);
+const isName = (v) => /^[^\s/?#]+\.(eth|base)$/i.test(v);
+const normName = (v) => { let n = v.trim().toLowerCase(); if (n.endsWith(".base")) n += ".eth"; return n; };
+let sha3 = null;
+async function namehash(name) {
+  sha3 ??= await import("https://cdn.jsdelivr.net/npm/@noble/hashes@1.4.0/sha3/+esm");
+  const enc = new TextEncoder(); let node = new Uint8Array(32);
+  for (const label of name.split(".").reverse()) { const buf = new Uint8Array(64); buf.set(node); buf.set(sha3.keccak_256(enc.encode(label)), 32); node = sha3.keccak_256(buf); }
+  return [...node].map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+async function callOn(rpcs, to, data) {
+  for (const url of rpcs) { try { const j = await rpc(url, { jsonrpc: "2.0", id: 1, method: "eth_call", params: [{ to, data }, "latest"] }); if (j?.result && j.result !== "0x") return j.result; } catch {} }
+  throw new Error("rpc");
+}
+const nameCache = new Map();
+async function resolveName(raw) {
+  const name = normName(raw);
+  if (nameCache.has(name)) return nameCache.get(name);
+  const onBase = name.endsWith(".base.eth"), rpcs = onBase ? RPCS.map((r) => r.url) : ETH_RPCS;
+  const node = await namehash(name);
+  const res = await callOn(rpcs, onBase ? BASENAME_REGISTRY : ENS_REGISTRY, "0x0178b8bf" + node);
+  const resolver = "0x" + res.slice(-40);
+  if (/^0x0{40}$/.test(resolver)) throw new Error("name not found");
+  const addr = "0x" + (await callOn(rpcs, resolver, "0x3b3b57de" + node)).slice(-40);
+  if (/^0x0{40}$/.test(addr)) throw new Error("no address");
+  const out = { addr: addr.toLowerCase(), name }; nameCache.set(name, out); return out;
+}
+// accepts 0x addresses, ENS names and Basenames; returns { addr, name } or null if it isn't either
+async function toWallet(input) {
+  const v = input.trim();
+  if (isAddr(v)) return { addr: v.toLowerCase(), name: null };
+  if (isName(v)) return resolveName(v);
+  return null;
+}
+const nameError = (e) => e?.message === "name not found" || e?.message === "no address" ? "That name doesn't point to a wallet yet." : "Couldn't look that name up right now. Try again in a moment.";
 const getSupply = async () => parseInt(await callOne(ethCall(SEL.supply)), 16);
 const getBlock = async () => parseInt(await callOne({ jsonrpc: "2.0", id: 1, method: "eth_blockNumber", params: [] }), 16);
 const getWallet = async (addr) => decodeUintArray(await callOne(ethCall(SEL.wallet + addr.slice(2).toLowerCase().padStart(64, "0"))));
@@ -1505,10 +1544,10 @@ const NEED = ROSTER * 2;
 // the army is drafted from this wallet's Chonks
 const DEFAULT_WALLET = "0xb120839bfb092cef28315e6c35a0797e1952d535";
 // ?wallet=0x… in the address makes that wallet's Chonks the whole battlefield
-const urlWallet = (() => { try { const w = new URLSearchParams(location.search).get("wallet"); return w && /^0x[0-9a-fA-F]{40}$/.test(w) ? w.toLowerCase() : null; } catch { return null; } })();
-let armyWallet = urlWallet || DEFAULT_WALLET;
+const urlWallet = (() => { try { const w = (new URLSearchParams(location.search).get("wallet") || "").trim(); return isAddr(w) || isName(w) ? w.toLowerCase() : null; } catch { return null; } })();
+let armyWallet = urlWallet && isAddr(urlWallet) ? urlWallet : DEFAULT_WALLET, armyName = null;
 const shortAddr = (a) => a.slice(0, 6) + "…" + a.slice(-4);
-async function draftFromWallet(onProgress, wallet = armyWallet) {
+async function draftFromWallet(onProgress, wallet = armyWallet, label = armyName) {
   const ids = await getWallet(wallet);
   if (!ids.length) throw new Error("empty wallet");
   for (let i = ids.length - 1; i > 0; i--) { const j = (Math.random() * (i + 1)) | 0; [ids[i], ids[j]] = [ids[j], ids[i]]; }
@@ -1523,12 +1562,13 @@ async function draftFromWallet(onProgress, wallet = armyWallet) {
   for (const c of twins) { if (out.length >= NEED) break; out.push(c); }
   for (let i = out.length - 1; i > 0; i--) { const j = (Math.random() * (i + 1)) | 0; [out[i], out[j]] = [out[j], out[i]]; }
   if (out.length >= NEED && out.length % 2) out.pop();   // small armies keep every Chonk; copies even the sides out
-  chain.source = `${out.length} Chonk${out.length === 1 ? "" : "s"} from ${shortAddr(wallet)}${wallet !== DEFAULT_WALLET ? " (your army)" : ""}`;
+  chain.source = `${out.length} Chonk${out.length === 1 ? "" : "s"} from ${label || shortAddr(wallet)}${wallet !== DEFAULT_WALLET ? " (your army)" : ""}`;
   return { supply: ids.length, chonks: out, owned: ids.length, uniqueLooks: unique.length };
 }
 async function draftFromChain(onProgress) {
-  try { return await draftFromWallet(onProgress, armyWallet); } catch {}
-  if (armyWallet !== DEFAULT_WALLET) { armyWallet = DEFAULT_WALLET; try { return await draftFromWallet(onProgress, armyWallet); } catch {} }
+  if (urlWallet && isName(urlWallet) && !armyName) { try { const w = await resolveName(urlWallet); armyWallet = w.addr; armyName = w.name; } catch {} }
+  try { return await draftFromWallet(onProgress, armyWallet, armyName); } catch {}
+  if (armyWallet !== DEFAULT_WALLET) { armyWallet = DEFAULT_WALLET; armyName = null; try { return await draftFromWallet(onProgress, armyWallet); } catch {} }
   const supply = await getSupply();
   const tried = new Set(), seen = new Set(), out = [];
   // keep drawing random token IDs until we have NEED Chonks that look different from each other
@@ -1598,13 +1638,16 @@ $("enlistBtn").onclick = () => { $("panel").hidden = !$("panel").hidden; if (!$(
 $("sideSeg").onclick = (e) => { const b = e.target.closest("button"); if (!b) return; enlistSide = +b.dataset.side; [...$("sideSeg").children].forEach((x) => x.className = x === b ? "on " + (enlistSide ? "s" : "b") : ""); };
 function enlistMsg(t, k = "") { const s = $("enlistStatus"); s.textContent = t; s.className = k; }
 async function enlist() {
-  const v = $("enlistInput").value.trim(); if (!v) { enlistMsg("Enter a token ID or a wallet address.", "err"); return; }
+  const v = $("enlistInput").value.trim(); if (!v) { enlistMsg("Enter a token ID, a wallet address or a name.", "err"); return; }
   if (chain.offline) { enlistMsg("Base can't be reached from here, so new Chonks can't load. Open this file in a normal browser tab.", "err"); return; }
   let ids = [];
   try {
-    if (/^0x[0-9a-fA-F]{40}$/.test(v)) { enlistMsg("Looking up Chonks in that wallet…"); ids = (await getWallet(v)).slice(0, 12); if (!ids.length) { enlistMsg("That wallet holds no Chonks.", "err"); return; } }
+    if (isAddr(v) || isName(v)) {
+      if (isName(v)) enlistMsg(`Looking up ${normName(v)}…`);
+      let w; try { w = await toWallet(v); } catch (e) { enlistMsg(nameError(e), "err"); return; }
+      enlistMsg(`Looking up Chonks in ${w.name || "that wallet"}…`); ids = (await getWallet(w.addr)).slice(0, 12); if (!ids.length) { enlistMsg("That wallet holds no Chonks.", "err"); return; } }
     else if (/^\d+$/.test(v)) ids = [parseInt(v, 10)];
-    else { enlistMsg("Use a number like 1337 or a full 0x wallet address.", "err"); return; }
+    else { enlistMsg("Use a token ID like 1337, a 0x wallet, name.eth or name.base.eth.", "err"); return; }
     enlistMsg(`Reading ${ids.length} Chonk${ids.length > 1 ? "s" : ""} from Base…`);
     const got = await readZMaps(ids);
     let n = 0;
@@ -1627,20 +1670,27 @@ function retireHero(h) {
 }
 $("enlistGo").onclick = enlist;
 $("enlistInput").addEventListener("keydown", (e) => { if (e.key === "Enter") enlist(); });
-async function useWallet(wallet) {
+async function useWallet(wallet, name = null) {
   if (chain.offline) { enlistMsg("Base can't be reached from here, so the samples stay.", "err"); return; }
   enlistMsg(wallet === DEFAULT_WALLET ? "Drafting the default army…" : "Reading the Chonks in that wallet…");
   let r;
-  try { r = await draftFromWallet((id, done, total) => enlistMsg(`getChonkZMap · ${done} of ${total} read`), wallet); }
+  try { r = await draftFromWallet((id, done, total) => enlistMsg(`getChonkZMap · ${done} of ${total} read`), wallet, name); }
   catch (e) { enlistMsg(e?.message === "empty wallet" ? "That wallet holds no Chonks." : "Couldn't reach a Base RPC. Try again in a moment.", "err"); return; }
-  armyWallet = wallet; installArmies(r.chonks);
-  try { const u = new URL(location.href); if (wallet === DEFAULT_WALLET) u.searchParams.delete("wallet"); else u.searchParams.set("wallet", wallet); history.replaceState(null, "", u); } catch {}
+  armyWallet = wallet; armyName = name; installArmies(r.chonks);
+  try { const u = new URL(location.href); if (wallet === DEFAULT_WALLET) u.searchParams.delete("wallet"); else u.searchParams.set("wallet", name || wallet); history.replaceState(null, "", u); } catch {}
   const n = r.chonks.length;
   enlistMsg(wallet === DEFAULT_WALLET ? "Back to the default army."
     : `Your ${n} Chonk${n === 1 ? " is" : "s are"} fighting${n < NEED ? `, with copies so each side fields ${ROSTER}` : ""}. Share this page's link to show your army.`, "ok");
-  feed(`<span class="w">${wallet === DEFAULT_WALLET ? "Default army deployed" : `${shortAddr(wallet)}'s army deployed`}</span> <span class="m">· ${n} Chonk${n === 1 ? "" : "s"}</span>`);
+  feed(`<span class="w">${wallet === DEFAULT_WALLET ? "Default army deployed" : `${name || shortAddr(wallet)}'s army deployed`}</span> <span class="m">· ${n} Chonk${n === 1 ? "" : "s"}</span>`);
 }
-$("armyGo").onclick = () => { const w = $("armyInput").value.trim(); if (!/^0x[0-9a-fA-F]{40}$/.test(w)) { enlistMsg("Enter a full wallet address starting with 0x (42 characters).", "err"); return; } useWallet(w.toLowerCase()); };
+$("armyGo").onclick = async () => {
+  const v = $("armyInput").value.trim();
+  if (!isAddr(v) && !isName(v)) { enlistMsg("Enter a wallet address (0x…), an ENS name (name.eth) or a Basename (name.base.eth).", "err"); return; }
+  let w; if (isName(v)) enlistMsg(`Looking up ${normName(v)}…`);
+  try { w = await toWallet(v); } catch (e) { enlistMsg(nameError(e), "err"); return; }
+  if (w.name) enlistMsg(`${w.name} → ${shortAddr(w.addr)}. Reading its Chonks…`);
+  useWallet(w.addr, w.name);
+};
 $("armyInput").addEventListener("keydown", (e) => { if (e.key === "Enter") $("armyGo").click(); });
 $("armyReset").onclick = () => useWallet(DEFAULT_WALLET);
 if (urlWallet) $("armyInput").value = urlWallet;
@@ -1915,7 +1965,7 @@ addEventListener("resize", () => { renderer.setSize(innerWidth, innerHeight); ca
   let chonks = null;
   try {
     msg.textContent = "Asking Base which Chonks the wallet holds…";
-    if (urlWallet) $("loadLead").firstChild.textContent = `Drafting the army from ${shortAddr(urlWallet)}'s Chonks. Every soldier is rebuilt from voxel data stored onchain, fetched with `;
+    if (urlWallet) $("loadLead").firstChild.textContent = `Drafting the army from ${isName(urlWallet) ? normName(urlWallet) : shortAddr(urlWallet)}'s Chonks. Every soldier is rebuilt from voxel data stored onchain, fetched with `;
     const r = await draftFromChain((id, done, total) => {
       const sp = document.createElement("span"); sp.textContent = "#" + id; sp.className = done <= total / 2 ? "b" : "s"; idsEl.append(sp);
       while (idsEl.children.length > 90) idsEl.firstChild.remove();
