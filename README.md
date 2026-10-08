@@ -48,7 +48,7 @@ Brawlers charge the line and fight hand to hand. About 1 in 5 Chonks are thrower
 | 1 / 2 / 3 | Cinematic, Follow and Free cameras |
 | Army & heroes → Your army | Rebuild both sides from only your wallet's Chonks (copies fill each side to 100 if you hold fewer) |
 | Army & heroes → Enlist | Add any token ID or wallet's Chonks as heroes |
-| Mute / M | Silence music and effects |
+| Audio | Music and sound-effect sliders, plus a mute toggle (or press M) |
 | Call airstrike | A bomber drops 8 bombs straight down the frontline, hitting both sides (12s cooldown) |
 
 On phones: drag on the left side of the screen to move, tap to throw.

@@ -130,6 +130,16 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--skin); outl
 /* ---------- audio panel ---------- */
 #audioPanel { position: fixed; right: 16px; bottom: calc(150px + env(safe-area-inset-bottom, 0px)); width: min(300px, calc(100vw - 32px)); border-radius: 14px; padding: 16px; z-index: 8; display: flex; flex-direction: column; gap: 14px; box-sizing: border-box; }
 #audioPanel h2 { margin: 0; font: 400 14px var(--display); }
+.ap-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+#muteBtn { display: inline-flex; align-items: center; gap: 7px; border: 1px solid var(--line); background: rgba(255,255,255,.05); border-radius: 999px; padding: 6px 12px 6px 9px; font: 500 11px var(--mono); color: var(--fg); }
+#muteBtn[aria-pressed="true"] { border-color: var(--sell); color: var(--sell); background: rgba(255,90,106,.1); }
+.spk { width: 18px; height: 18px; flex: none; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.spk .cone { fill: currentColor; stroke: none; }
+.spk .off { display: none; }
+.is-muted .spk .on { display: none; }
+.is-muted .spk .off { display: inline; }
+#audioBtn { display: inline-flex; align-items: center; gap: 8px; }
+#audioBtn.is-muted { color: var(--sell); }
 #audioPanel p { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.5; }
 .vol { display: grid; grid-template-columns: 1fr auto; gap: 6px 10px; align-items: center; }
 .vol label { font: 400 10px var(--display); letter-spacing: .1em; color: var(--muted); text-transform: uppercase; }
@@ -239,8 +249,7 @@ body.playing #stage canvas { cursor: crosshair; }
 <div class="br">
   <div class="help"><b>drag</b> orbit · <b>scroll</b> zoom · <b>WASD</b> move<br><b>1 2 3</b> camera · <b>click</b> a Chonk to inspect</div>
   <div class="row">
-    <button type="button" class="btn" id="muteBtn" aria-pressed="false" title="Mute (M)">Mute</button>
-    <button type="button" class="btn" id="audioBtn" aria-expanded="false" aria-controls="audioPanel">Audio</button>
+    <button type="button" class="btn" id="audioBtn" aria-expanded="false" aria-controls="audioPanel"><svg class="spk" viewBox="0 0 24 24" aria-hidden="true"><path class="cone" d="M4 9h4l5-4v14l-5-4H4z"/><path class="on" d="M16 9.5a3.5 3.5 0 0 1 0 5M18.5 7a7 7 0 0 1 0 10"/><path class="off" d="M16.5 9.5l5 5M21.5 9.5l-5 5"/></svg><span>Audio</span></button>
     <button type="button" class="btn" id="airBtn">Call airstrike</button>
     <button type="button" class="btn primary" id="playBtn">Play</button>
     <button type="button" class="btn" id="enlistBtn">Army &amp; heroes</button>
@@ -272,7 +281,7 @@ body.playing #stage canvas { cursor: crosshair; }
 </div>
 
 <div id="audioPanel" class="glass" hidden>
-  <h2>Audio</h2>
+  <div class="ap-head"><h2>Audio</h2><button type="button" id="muteBtn" aria-pressed="false" aria-label="Mute all sound" title="Mute (M)"><svg class="spk" viewBox="0 0 24 24" aria-hidden="true"><path class="cone" d="M4 9h4l5-4v14l-5-4H4z"/><path class="on" d="M16 9.5a3.5 3.5 0 0 1 0 5M18.5 7a7 7 0 0 1 0 10"/><path class="off" d="M16.5 9.5l5 5M21.5 9.5l-5 5"/></svg><span id="muteLbl">Mute</span></button></div>
   <div class="vol"><label for="musicVol">Music</label><output id="musicOut" for="musicVol">35%</output><input type="range" id="musicVol" min="0" max="100" step="1"></div>
   <div class="vol"><label for="sfxVol">Sound effects</label><output id="sfxOut" for="sfxVol">55%</output><input type="range" id="sfxVol" min="0" max="100" step="1"></div>
   <p id="audioHint">Browsers hold sound until you interact. Click anywhere on the battlefield to start the music.</p>
@@ -1418,7 +1427,10 @@ function applyVol() {
   if (sfxGain) sfxGain.gain.setTargetAtTime(gainOf(vol.sfx) * m, actx.currentTime, .05);
   if (musicEl && !musicGain) musicEl.volume = gainOf(vol.music) * m;
   if (musicEl) { if (vol.music > 0 && !muted && musicEl.paused) musicEl.play().catch(() => {}); }
-  const b = $("muteBtn"); b.textContent = muted ? "Unmute" : "Mute"; b.setAttribute("aria-pressed", String(muted));
+  const b = $("muteBtn"); b.setAttribute("aria-pressed", String(muted)); b.setAttribute("aria-label", muted ? "Unmute sound" : "Mute all sound");
+  $("muteLbl").textContent = muted ? "Muted" : "Mute";
+  b.classList.toggle("is-muted", muted); $("audioBtn").classList.toggle("is-muted", muted);
+  $("audioBtn").title = muted ? "Audio (muted)" : "Audio";
 }
 function toggleMute() {
   muted = !muted; try { localStorage.setItem("chonk-wars-muted", muted ? "1" : "0"); } catch {}
