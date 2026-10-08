@@ -17,6 +17,8 @@ No images and no indexer. Every soldier is rebuilt in the browser from voxel dat
 - Every distinct look in the wallet is used before any lookalike, so all 200 soldiers are different tokens.
 - Animated with the same rig and walk cycle as the Chonks playground, and drawn as one batched mesh.
 
+Want your own army? Add `?wallet=0xYourAddress` to the link (or use **Army & heroes → Your army**) and every soldier comes from that wallet.
+
 If Base can't be reached, it falls back to six built-in sample Chonks.
 
 ## How the market drives the battle
@@ -44,7 +46,9 @@ Brawlers charge the line and fight hand to hand. About 1 in 5 Chonks are thrower
 | Click / Space | Throw a cube |
 | Esc | Hand your Chonk back to the AI |
 | 1 / 2 / 3 | Cinematic, Follow and Free cameras |
-| Enlist | Add any token ID or wallet's Chonks as heroes |
+| Army & heroes → Your army | Rebuild both sides from only your wallet's Chonks (copies fill each side to 100 if you hold fewer) |
+| Army & heroes → Enlist | Add any token ID or wallet's Chonks as heroes |
+| Mute / M | Silence music and effects |
 | Call airstrike | A bomber drops 8 bombs straight down the frontline, hitting both sides (12s cooldown) |
 
 On phones: drag on the left side of the screen to move, tap to throw.

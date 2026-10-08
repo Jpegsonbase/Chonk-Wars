@@ -110,6 +110,9 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--skin); outl
 /* ---------- enlist panel ---------- */
 #panel { position: fixed; right: 16px; bottom: calc(150px + env(safe-area-inset-bottom, 0px)); width: min(340px, calc(100vw - 32px)); border-radius: 14px; padding: 16px; z-index: 8; display: flex; flex-direction: column; gap: 12px; box-sizing: border-box; }
 #panel h2 { margin: 0; font: 400 14px var(--display); }
+#panel { max-height: calc(100vh - 230px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)); overflow-y: auto; }
+#panel section { display: flex; flex-direction: column; gap: 10px; }
+#panel section + section { border-top: 1px solid var(--line); padding-top: 14px; }
 #panel p { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.5; }
 #panel label.lbl { font: 400 10px var(--display); letter-spacing: .1em; color: var(--muted); }
 #panel input[type=text] { width: 100%; box-sizing: border-box; background: rgba(255,255,255,.06); color: var(--fg); border: 1px solid var(--line); border-radius: 9px; padding: 10px 11px; font: 400 13px var(--mono); }
@@ -192,7 +195,8 @@ body.playing #stage canvas { cursor: crosshair; }
   .brand b { display: none; }
   .centre { top: calc(100px + env(safe-area-inset-top, 0px)); }
   .bl { bottom: calc(108px + env(safe-area-inset-bottom, 0px)); }
-  #panel, #audioPanel { bottom: calc(108px + env(safe-area-inset-bottom, 0px)); }
+  #panel, #audioPanel { bottom: calc(162px + env(safe-area-inset-bottom, 0px)); }
+  #panel { max-height: calc(100vh - 250px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)); }
   .score { min-width: 0; gap: 8px; padding: 6px 10px; }
   .bar { width: 56px; }
   #delta .vs { display: none; }
@@ -235,10 +239,11 @@ body.playing #stage canvas { cursor: crosshair; }
 <div class="br">
   <div class="help"><b>drag</b> orbit · <b>scroll</b> zoom · <b>WASD</b> move<br><b>1 2 3</b> camera · <b>click</b> a Chonk to inspect</div>
   <div class="row">
+    <button type="button" class="btn" id="muteBtn" aria-pressed="false" title="Mute (M)">Mute</button>
     <button type="button" class="btn" id="audioBtn" aria-expanded="false" aria-controls="audioPanel">Audio</button>
     <button type="button" class="btn" id="airBtn">Call airstrike</button>
     <button type="button" class="btn primary" id="playBtn">Play</button>
-    <button type="button" class="btn" id="enlistBtn">Enlist a Chonk</button>
+    <button type="button" class="btn" id="enlistBtn">Army &amp; heroes</button>
   </div>
   <div class="cams glass" id="cams">
     <button type="button" data-mode="cine" class="on"><kbd>1</kbd>Cinematic</button>
@@ -248,14 +253,22 @@ body.playing #stage canvas { cursor: crosshair; }
 </div>
 
 <div id="panel" class="glass" hidden>
-  <h2>Enlist a Chonk</h2>
-  <p>Enter a token ID or a wallet. The Chonk is read from the ChonksMain contract on Base and joins the front line as a hero.</p>
-  <label class="lbl" for="enlistInput">Token ID or wallet</label>
-  <input type="text" id="enlistInput" placeholder="e.g. 1337 or 0x…" autocomplete="off" spellcheck="false">
-  <label class="lbl">Side</label>
-  <div class="seg" id="sideSeg"><button type="button" class="on b" data-side="0">Diamond · buy</button><button type="button" data-side="1">Paper · sell</button></div>
-  <div id="enlistStatus"></div>
-  <div class="panel-actions"><button type="button" class="btn" id="redraft">Reshuffle armies</button><button type="button" class="btn primary" id="enlistGo">Enlist</button></div>
+  <section>
+    <h2>Your army</h2>
+    <p>Fight with only your Chonks. Both sides are rebuilt from this wallet, and the page link saves it so you can share your army.</p>
+    <input type="text" id="armyInput" placeholder="Your wallet 0x…" autocomplete="off" spellcheck="false" aria-label="Your wallet address">
+    <div class="panel-actions"><button type="button" class="btn" id="armyReset">Default army</button><button type="button" class="btn primary" id="armyGo">Use my Chonks</button></div>
+    <button type="button" class="btn" id="redraft">Reshuffle sides</button>
+  </section>
+  <section>
+    <h2>Enlist a hero</h2>
+    <p>Add any token ID, or every Chonk in a wallet, to the front line as a bigger hero.</p>
+    <input type="text" id="enlistInput" placeholder="e.g. 1337 or 0x…" autocomplete="off" spellcheck="false" aria-label="Token ID or wallet">
+    <div class="seg" id="sideSeg"><button type="button" class="on b" data-side="0">Diamond · buy</button><button type="button" data-side="1">Paper · sell</button></div>
+    <button type="button" class="btn primary" id="enlistGo">Enlist</button>
+  </section>
+  <div id="enlistStatus" role="status"></div>
+</div>
 </div>
 
 <div id="audioPanel" class="glass" hidden>
@@ -283,7 +296,7 @@ body.playing #stage canvas { cursor: crosshair; }
 <div id="loader">
   <div class="load">
     <h1>Reading <em>Chonks</em> from Base</h1>
-    <p>Drafting 200 Chonks from wallet 0xb120…d535, 100 per side. Every soldier is rebuilt from voxel data stored onchain, fetched with <code>getChonkZMap(tokenId)</code> on the ChonksMain contract. No indexer, no images.</p>
+    <p id="loadLead">Drafting 200 Chonks from wallet 0xb120…d535, 100 per side. Every soldier is rebuilt from voxel data stored onchain, fetched with <code>getChonkZMap(tokenId)</code> on the ChonksMain contract. No indexer, no images.</p>
     <div class="prog"><i id="prog"></i></div>
     <div id="ids"></div>
     <div id="loadMsg">Connecting to a Base RPC…</div>
@@ -1397,13 +1410,23 @@ const BGM_B64 = "SUQzBAAAAAABKlRYWFgAAAAZAAADV01GU0RLTmVlZGVkADAuMC4wLjAwMDAAVFh
 const vol = { music: .35, sfx: .55 };
 try { const v = JSON.parse(localStorage.getItem("chonk-battlefield-audio") || "null"); if (v && typeof v.music === "number") Object.assign(vol, v); } catch {}
 let actx = null, musicGain = null, sfxGain = null, musicEl = null, noiseBuf = null, audioStarted = false, lastSfx = {};
+let muted = false; try { muted = localStorage.getItem("chonk-wars-muted") === "1"; } catch {}
 const gainOf = (v) => v * v; // perceptual taper
 function applyVol() {
-  if (musicGain) musicGain.gain.setTargetAtTime(gainOf(vol.music), actx.currentTime, .05);
-  if (sfxGain) sfxGain.gain.setTargetAtTime(gainOf(vol.sfx), actx.currentTime, .05);
-  if (musicEl && !musicGain) musicEl.volume = gainOf(vol.music);
-  if (musicEl) { if (vol.music > 0 && musicEl.paused) musicEl.play().catch(() => {}); }
+  const m = muted ? 0 : 1;
+  if (musicGain) musicGain.gain.setTargetAtTime(gainOf(vol.music) * m, actx.currentTime, .05);
+  if (sfxGain) sfxGain.gain.setTargetAtTime(gainOf(vol.sfx) * m, actx.currentTime, .05);
+  if (musicEl && !musicGain) musicEl.volume = gainOf(vol.music) * m;
+  if (musicEl) { if (vol.music > 0 && !muted && musicEl.paused) musicEl.play().catch(() => {}); }
+  const b = $("muteBtn"); b.textContent = muted ? "Unmute" : "Mute"; b.setAttribute("aria-pressed", String(muted));
 }
+function toggleMute() {
+  muted = !muted; try { localStorage.setItem("chonk-wars-muted", muted ? "1" : "0"); } catch {}
+  startAudio(); applyVol();
+}
+$("muteBtn").onclick = toggleMute;
+addEventListener("keydown", (e) => { if (e.target.tagName !== "INPUT" && (e.key === "m" || e.key === "M") && !e.repeat) toggleMute(); });
+queueMicrotask(applyVol);
 function startAudio() {
   if (audioStarted) { if (actx?.state === "suspended") actx.resume(); return; }
   audioStarted = true;
@@ -1427,7 +1450,7 @@ function bindVol(key) {
   const inp = $(key + "Vol"), out = $(key + "Out");
   inp.value = Math.round(vol[key] * 100); out.textContent = inp.value + "%";
   inp.addEventListener("input", () => {
-    vol[key] = inp.value / 100; out.textContent = inp.value + "%"; startAudio(); applyVol();
+    vol[key] = inp.value / 100; out.textContent = inp.value + "%"; if (muted) { muted = false; try { localStorage.setItem("chonk-wars-muted", "0"); } catch {} } startAudio(); applyVol();
     try { localStorage.setItem("chonk-battlefield-audio", JSON.stringify(vol)); } catch {}
     if (key === "sfx") sfx("tap");
   });
@@ -1450,7 +1473,7 @@ function tone(now, type, f0, f1, len, v) {
   g.gain.setValueAtTime(v, now); g.gain.exponentialRampToValueAtTime(.0008, now + len); o.start(now); o.stop(now + len + .02);
 }
 function sfx(kind) {
-  if (!actx || !sfxGain || vol.sfx <= 0) return; const now = actx.currentTime;
+  if (!actx || !sfxGain || vol.sfx <= 0 || muted) return; const now = actx.currentTime;
   if (lastSfx[kind] && now - lastSfx[kind] < (kind === "throw" ? .06 : .03)) return; lastSfx[kind] = now;
   switch (kind) {
     case "throw": tone(now, "square", rnd(520, 700), 260, .08, .06); break;
@@ -1468,11 +1491,14 @@ function sfx(kind) {
    =================================================================== */
 const NEED = ROSTER * 2;
 // the army is drafted from this wallet's Chonks
-const ARMY_WALLET = "0xb120839bfb092cef28315e6c35a0797e1952d535";
+const DEFAULT_WALLET = "0xb120839bfb092cef28315e6c35a0797e1952d535";
+// ?wallet=0x… in the address makes that wallet's Chonks the whole battlefield
+const urlWallet = (() => { try { const w = new URLSearchParams(location.search).get("wallet"); return w && /^0x[0-9a-fA-F]{40}$/.test(w) ? w.toLowerCase() : null; } catch { return null; } })();
+let armyWallet = urlWallet || DEFAULT_WALLET;
 const shortAddr = (a) => a.slice(0, 6) + "…" + a.slice(-4);
-async function draftFromWallet(onProgress) {
-  const ids = await getWallet(ARMY_WALLET);
-  if (ids.length < 20) throw new Error("wallet too small");
+async function draftFromWallet(onProgress, wallet = armyWallet) {
+  const ids = await getWallet(wallet);
+  if (!ids.length) throw new Error("empty wallet");
   for (let i = ids.length - 1; i > 0; i--) { const j = (Math.random() * (i + 1)) | 0; [ids[i], ids[j]] = [ids[j], ids[i]]; }
   const seen = new Set(), unique = [], twins = [];
   const got = await readZMaps(ids, (id, z) => {
@@ -1484,12 +1510,13 @@ async function draftFromWallet(onProgress) {
   const out = unique.slice(0, NEED);
   for (const c of twins) { if (out.length >= NEED) break; out.push(c); }
   for (let i = out.length - 1; i > 0; i--) { const j = (Math.random() * (i + 1)) | 0; [out[i], out[j]] = [out[j], out[i]]; }
-  if (out.length % 2) out.pop();
-  chain.source = `${out.length} Chonks from ${shortAddr(ARMY_WALLET)}`;
+  if (out.length % 2 && out.length > 1) out.pop();
+  chain.source = `${out.length} Chonk${out.length === 1 ? "" : "s"} from ${shortAddr(wallet)}${wallet !== DEFAULT_WALLET ? " (your army)" : ""}`;
   return { supply: ids.length, chonks: out, owned: ids.length, uniqueLooks: unique.length };
 }
 async function draftFromChain(onProgress) {
-  try { return await draftFromWallet(onProgress); } catch {}
+  try { return await draftFromWallet(onProgress, armyWallet); } catch {}
+  if (armyWallet !== DEFAULT_WALLET) { armyWallet = DEFAULT_WALLET; try { return await draftFromWallet(onProgress, armyWallet); } catch {} }
   const supply = await getSupply();
   const tried = new Set(), seen = new Set(), out = [];
   // keep drawing random token IDs until we have NEED Chonks that look different from each other
@@ -1523,9 +1550,10 @@ function installArmies(chonks) {
   if (player.s && !player.s.hero) stopPlay();
   disposeArmy();
   const models = chonks.map((c) => new ChonkModel(c.id, c.vox));
-  const half = Math.ceil(models.length / 2), sides = [models.slice(0, half), models.slice(half)];
+  const half = Math.ceil(models.length / 2), sides = models.length > 1 ? [models.slice(0, half), models.slice(half)] : [models, models];
+  const fill = chain.offline || models.length < NEED;
   // online: one soldier per unique Chonk. offline: the 6 samples are spread over a full roster
-  const spec = sides.map((ms) => { const n = chain.offline ? ROSTER : ms.length; return Array.from({ length: n }, (_, i) => ms[i % ms.length]); });
+  const spec = sides.map((ms) => { const n = fill ? ROSTER : ms.length; return Array.from({ length: n }, (_, i) => ms[i % ms.length]); });
   let verts = 0, idx = 0;
   for (const m of models) for (const g of Object.values(m.geos)) { verts += g.attributes.position.count; idx += g.index.count; }
   const instMax = (spec[0].length + spec[1].length) * PARTS.length;
@@ -1554,7 +1582,7 @@ function installArmies(chonks) {
 
 /* enlist panel */
 let enlistSide = 0;
-$("enlistBtn").onclick = () => { $("panel").hidden = !$("panel").hidden; if (!$("panel").hidden) { $("audioPanel").hidden = true; $("audioBtn").setAttribute("aria-expanded", "false"); $("enlistInput").focus(); } };
+$("enlistBtn").onclick = () => { $("panel").hidden = !$("panel").hidden; if (!$("panel").hidden) { $("audioPanel").hidden = true; $("audioBtn").setAttribute("aria-expanded", "false"); } };
 $("sideSeg").onclick = (e) => { const b = e.target.closest("button"); if (!b) return; enlistSide = +b.dataset.side; [...$("sideSeg").children].forEach((x) => x.className = x === b ? "on " + (enlistSide ? "s" : "b") : ""); };
 function enlistMsg(t, k = "") { const s = $("enlistStatus"); s.textContent = t; s.className = k; }
 async function enlist() {
@@ -1587,6 +1615,23 @@ function retireHero(h) {
 }
 $("enlistGo").onclick = enlist;
 $("enlistInput").addEventListener("keydown", (e) => { if (e.key === "Enter") enlist(); });
+async function useWallet(wallet) {
+  if (chain.offline) { enlistMsg("Base can't be reached from here, so the samples stay.", "err"); return; }
+  enlistMsg(wallet === DEFAULT_WALLET ? "Drafting the default army…" : "Reading the Chonks in that wallet…");
+  let r;
+  try { r = await draftFromWallet((id, done, total) => enlistMsg(`getChonkZMap · ${done} of ${total} read`), wallet); }
+  catch (e) { enlistMsg(e?.message === "empty wallet" ? "That wallet holds no Chonks." : "Couldn't reach a Base RPC. Try again in a moment.", "err"); return; }
+  armyWallet = wallet; installArmies(r.chonks);
+  try { const u = new URL(location.href); if (wallet === DEFAULT_WALLET) u.searchParams.delete("wallet"); else u.searchParams.set("wallet", wallet); history.replaceState(null, "", u); } catch {}
+  const n = r.chonks.length;
+  enlistMsg(wallet === DEFAULT_WALLET ? "Back to the default army."
+    : `Your ${n} Chonk${n === 1 ? " is" : "s are"} fighting${n < NEED ? `, with copies so each side fields ${ROSTER}` : ""}. Share this page's link to show your army.`, "ok");
+  feed(`<span class="w">${wallet === DEFAULT_WALLET ? "Default army deployed" : `${shortAddr(wallet)}'s army deployed`}</span> <span class="m">· ${n} Chonk${n === 1 ? "" : "s"}</span>`);
+}
+$("armyGo").onclick = () => { const w = $("armyInput").value.trim(); if (!/^0x[0-9a-fA-F]{40}$/.test(w)) { enlistMsg("Enter a full wallet address starting with 0x (42 characters).", "err"); return; } useWallet(w.toLowerCase()); };
+$("armyInput").addEventListener("keydown", (e) => { if (e.key === "Enter") $("armyGo").click(); });
+$("armyReset").onclick = () => useWallet(DEFAULT_WALLET);
+if (urlWallet) $("armyInput").value = urlWallet;
 $("redraft").onclick = async () => {
   if (chain.offline) { enlistMsg("Base can't be reached from here, so the samples stay.", "err"); return; }
   enlistMsg("Re-drafting 200 Chonks from the wallet…");
@@ -1857,13 +1902,14 @@ addEventListener("resize", () => { renderer.setSize(innerWidth, innerHeight); ca
   switchSymbol("BTCUSDT");
   let chonks = null;
   try {
-    msg.textContent = "Asking Base how many Chonks exist…";
+    msg.textContent = "Asking Base which Chonks the wallet holds…";
+    if (urlWallet) $("loadLead").firstChild.textContent = `Drafting the army from ${shortAddr(urlWallet)}'s Chonks. Every soldier is rebuilt from voxel data stored onchain, fetched with `;
     const r = await draftFromChain((id, done, total) => {
       const sp = document.createElement("span"); sp.textContent = "#" + id; sp.className = done <= total / 2 ? "b" : "s"; idsEl.append(sp);
       while (idsEl.children.length > 90) idsEl.firstChild.remove();
       prog.style.width = (done / total * 100).toFixed(0) + "%"; msg.textContent = `getChonkZMap · ${done} of ${total} Chonks read`;
     });
-    chonks = r.chonks; msg.textContent = r.owned ? `${chonks.length} of the wallet's ${r.owned} Chonks drafted (${r.uniqueLooks} distinct looks). Deploying…` : `${chonks.length} unique Chonks read out of ${r.supply.toLocaleString("en-US")} minted. Deploying…`;
+    chonks = r.chonks; msg.textContent = r.owned ? `${chonks.length} of the wallet's ${r.owned} Chonk${r.owned === 1 ? "" : "s"} drafted (${r.uniqueLooks} distinct looks). Deploying…` : `${chonks.length} unique Chonks read out of ${r.supply.toLocaleString("en-US")} minted. Deploying…`;
     try { chain.block = await getBlock(); } catch {}
   } catch {
     chain.offline = true;
