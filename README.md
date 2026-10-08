@@ -42,6 +42,7 @@ Brawlers charge the line and fight hand to hand. About 1 in 5 Chonks are thrower
 | Esc | Hand your Chonk back to the AI |
 | 1 / 2 / 3 | Cinematic, Follow and Free cameras |
 | Enlist | Add any token ID or wallet's Chonks as heroes |
+| Call airstrike | A bomber drops 8 bombs straight down the frontline, hitting both sides (12s cooldown) |
 
 On phones: drag on the left side of the screen to move, tap to throw.
 

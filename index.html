@@ -92,6 +92,7 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--skin); outl
 .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
 .btn { border-radius: 999px; padding: 9px 15px; border: 1px solid var(--line); background: var(--panel); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); font: 400 12px var(--display); letter-spacing: .03em; }
 .btn.primary { background: var(--skin); color: var(--ink); border-color: var(--skin-deep); }
+.btn:disabled { opacity: .55; cursor: default; font-variant-numeric: tabular-nums; }
 
 /* ---------- enlist panel ---------- */
 #panel { position: fixed; right: 16px; bottom: calc(150px + env(safe-area-inset-bottom, 0px)); width: min(340px, calc(100vw - 32px)); border-radius: 14px; padding: 16px; z-index: 8; display: flex; flex-direction: column; gap: 12px; box-sizing: border-box; }
@@ -222,6 +223,7 @@ body.playing #stage canvas { cursor: crosshair; }
   <div class="help"><b>drag</b> orbit · <b>scroll</b> zoom · <b>WASD</b> move<br><b>1 2 3</b> camera · <b>click</b> a Chonk to inspect</div>
   <div class="row">
     <button type="button" class="btn" id="audioBtn" aria-expanded="false" aria-controls="audioPanel">Audio</button>
+    <button type="button" class="btn" id="airBtn">Call airstrike</button>
     <button type="button" class="btn primary" id="playBtn">Play</button>
     <button type="button" class="btn" id="enlistBtn">Enlist a Chonk</button>
   </div>
@@ -696,8 +698,9 @@ const shockGeo = new THREE.RingGeometry(.8, 1.2, 40); shockGeo.rotateX(-Math.PI 
 const planes = [], bombs = [], blasts = [];
 const blastLight = new THREE.PointLight(0xffa040, 0, 60, 1.6); scene.add(blastLight);
 const fireGeo = new THREE.IcosahedronGeometry(1, 1);
+const AIR_COL = new THREE.Color(0xefb15e);
 function makePlane(team) {
-  const g = new THREE.Group(), c = TEAM_COL[team];
+  const g = new THREE.Group(), c = TEAM_COL[team] ?? AIR_COL;
   const body = new THREE.MeshStandardMaterial({ color: 0x2b2f3a, roughness: .6, metalness: .2 }), trim = new THREE.MeshStandardMaterial({ color: c, emissive: c, emissiveIntensity: .25, roughness: .5 });
   const add = (geo, m, x, y, z) => { const o = new THREE.Mesh(geo, m); o.position.set(x, y, z); o.castShadow = true; g.add(o); };
   add(new THREE.BoxGeometry(6, 1.2, 1.3), body, 0, 0, 0);
@@ -709,7 +712,7 @@ function makePlane(team) {
   scene.add(g); return g;
 }
 function makeBomb(team) {
-  const g = new THREE.Group(), c = TEAM_COL[team];
+  const g = new THREE.Group(), c = TEAM_COL[team] ?? AIR_COL;
   const dark = new THREE.MeshStandardMaterial({ color: 0x1d2027, roughness: .5, metalness: .4 }), fin = new THREE.MeshStandardMaterial({ color: c, emissive: c, emissiveIntensity: .3 });
   const add = (geo, m, x, y, z) => { const o = new THREE.Mesh(geo, m); o.position.set(x, y, z); o.castShadow = true; g.add(o); };
   add(new THREE.BoxGeometry(.9, 1.6, .9), dark, 0, 0, 0);
@@ -750,10 +753,11 @@ function dropBombs(team, n, pct) {
   sfx("plane");
 }
 function explode(b) {
-  const { x, z } = b.g.position, R = 5 + b.power;
-  const victims = members[1 - b.team].filter((s) => Math.hypot(s.pos.x - x, s.pos.z - z) < R).slice(0, 16);
+  const { x, z } = b.g.position, R = 5 + b.power, neutral = b.team < 0;
+  const pool = neutral ? [...members[0], ...members[1]] : members[1 - b.team];
+  const victims = pool.filter((s) => Math.hypot(s.pos.x - x, s.pos.z - z) < R).slice(0, neutral ? 10 : 16);
   for (const v of victims) killSoldier(v, _v.set(v.pos.x - x, 0, v.pos.z - z), null);
-  for (const v of members[1 - b.team]) { const d = Math.hypot(v.pos.x - x, v.pos.z - z); if (d < R + 4) v.stagger = .35; }
+  for (const v of pool) { const d = Math.hypot(v.pos.x - x, v.pos.z - z); if (d < R + 4) v.stagger = .35; }
   disposeGroup(b.g);
   burst(_v.set(x, .6, z), [new THREE.Color(0xffb347), new THREE.Color(0xff6a2b), new THREE.Color(0x3a3530), new THREE.Color(0x8a6a45)], 220, 2.8, .3);
   burst(_v.set(x, 1, z), [new THREE.Color(0x2a2a2e), new THREE.Color(0x4a4a50)], 60, 1.4, .55);
@@ -764,7 +768,13 @@ function explode(b) {
   ring.position.set(x, .12, z); scene.add(ring);
   blasts.push({ fire, ring, t: 0, R });
   blastLight.position.set(x, 4, z); blastLight.intensity = 260;
-  cam.shake = Math.max(cam.shake, 1.8); ME.flow += (b.team === 0 ? 1 : -1) * 2.5; sfx("bomb");
+  cam.shake = Math.max(cam.shake, 1.8); sfx("bomb");
+  if (neutral) {
+    const st = b.strike; st.kills += victims.length;
+    if (--st.left === 0) feed(`<span class="w">✈ airstrike took out ${st.kills} Chonk${st.kills === 1 ? "" : "s"}</span> <span class="m">from both sides</span>`);
+    return;
+  }
+  ME.flow += (b.team === 0 ? 1 : -1) * 2.5;
   feed(`<span class="${b.team ? "r" : "g"}">💥 bomb took out ${victims.length}</span> <span class="m">${b.team ? "Diamond" : "Paper"} Chonk${victims.length === 1 ? "" : "s"}</span>`);
 }
 /* easter egg: type "chonk" and a giant naked Chonk stampedes across the field */
@@ -817,12 +827,29 @@ document.querySelector(".brand .cube").addEventListener("click", () => {
   const now = performance.now(); logoTaps = logoTaps.filter((t) => now - t < 2500); logoTaps.push(now);
   if (logoTaps.length >= 5) { logoTaps = []; summonGiant(); }
 });
+/* called-in airstrike: one bomber, a line of bombs straight down the frontline */
+const AIR_COOLDOWN = 12000, AIR_BOMBS = 8; let airReadyAt = 0;
+function callAirstrike() {
+  const now = performance.now(); if (now < airReadyAt || !ME.mid) return;
+  airReadyAt = now + AIR_COOLDOWN;
+  const T = Math.sqrt(2 * (26 - 1.2 - .8) / 26), drift = (30 / 1.2) * (1 - Math.exp(-1.2 * T));
+  const xs = Array.from({ length: AIR_BOMBS }, (_, i) => -26 + i * 52 / (AIR_BOMBS - 1) - drift);
+  const g = makePlane(-1); g.position.set(-120, 24, ME.frontZ); g.rotation.y = 0;
+  const strike = { kills: 0, left: AIR_BOMBS };
+  planes.push({ g, team: -1, dir: 1, drops: xs, tz: ME.frontZ, t: 0, strike });
+  bigEvent("Airstrike inbound!", `${AIR_BOMBS} bombs down the frontline`, null);
+  feed(`<span class="w">✈ airstrike called in</span> <span class="m">· everyone on the line, take cover</span>`);
+  if (cam.mode === "cine") cam.focus = { x: 0, z: ME.frontZ, r: 44, h: 22, ly: 2, until: now + 7000 };
+  sfx("plane");
+}
+$("airBtn").onclick = callAirstrike;
 function stepBombs(dt) {
   for (let i = planes.length - 1; i >= 0; i--) {
     const p = planes[i]; p.t += dt; p.g.position.x += p.dir * 42 * dt; p.g.rotation.x = Math.sin(p.t * 2) * .06;
+    if (p.strike) p.g.position.z += (ME.frontZ - p.g.position.z) * Math.min(1, dt * 3);
     while (p.drops.length && (p.g.position.x - p.drops[0]) * p.dir >= 0) {
       p.drops.shift(); const b = makeBomb(p.team); b.position.copy(p.g.position).add(_v.set(0, -1.2, 0));
-      bombs.push({ g: b, team: p.team, vx: p.dir * 30, vy: 0, power: 1 + Math.random() }); sfx("whistle");
+      bombs.push({ g: b, team: p.team, vx: p.dir * 30, vy: 0, power: p.strike ? .6 : 1 + Math.random(), strike: p.strike }); sfx("whistle");
     }
     if (Math.abs(p.g.position.x) > 130) { disposeGroup(p.g); planes.splice(i, 1); }
   }
@@ -1206,6 +1233,8 @@ function updateHUD() {
   $("bookBar").style.width = (share * 100).toFixed(1) + "%";
   $("sB").textContent = `${members[0].length} up · ${stats[0].kos} KO`;
   $("sS").textContent = `${members[1].length} up · ${stats[1].kos} KO`;
+  { const left = Math.ceil((airReadyAt - performance.now()) / 1000), btn = $("airBtn");
+    btn.disabled = left > 0; btn.textContent = left > 0 ? `Airstrike ${left}s` : "Call airstrike"; }
   if (player.s) {
     const s = player.s, f = Math.max(0, s.state === "alive" ? s.hp / PLAYER_HP : 0), hp = $("phHp");
     hp.style.width = (f * 100).toFixed(0) + "%"; hp.classList.toggle("low", f <= .3);
