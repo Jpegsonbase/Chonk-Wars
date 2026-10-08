@@ -1,4 +1,7 @@
 # Chonk-Wars
+
+![Chonk Wars: two armies of onchain Chonks clash across the price line](og.png)
+
 A live price tracker for Bitcoin, Ethereum, and Solana. But chonky!
 
 Two armies of [Chonks](https://basescan.org/token/0x07152bfde079b5319e5308c43fb1dbc9c76cb4f9) fight over the live price. Diamond Chonks (buyers) hold the left, Paper Chonks (sellers) hold the right, and the frontline sits exactly where the price is. Every trade on the market lands as a blow on the battlefield.
