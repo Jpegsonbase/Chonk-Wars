@@ -1510,7 +1510,7 @@ async function draftFromWallet(onProgress, wallet = armyWallet) {
   const out = unique.slice(0, NEED);
   for (const c of twins) { if (out.length >= NEED) break; out.push(c); }
   for (let i = out.length - 1; i > 0; i--) { const j = (Math.random() * (i + 1)) | 0; [out[i], out[j]] = [out[j], out[i]]; }
-  if (out.length % 2 && out.length > 1) out.pop();
+  if (out.length >= NEED && out.length % 2) out.pop();   // small armies keep every Chonk; copies even the sides out
   chain.source = `${out.length} Chonk${out.length === 1 ? "" : "s"} from ${shortAddr(wallet)}${wallet !== DEFAULT_WALLET ? " (your army)" : ""}`;
   return { supply: ids.length, chonks: out, owned: ids.length, uniqueLooks: unique.length };
 }
