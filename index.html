@@ -965,6 +965,18 @@ const HORSE_MESH = ["A", "B"].map((v) => {
     tail: mk(horseGeo(P.tail, "hide"), chonkMat, HORSE_CAP),
   };
 });
+// each horse's commonest colours, for when one bursts into cubes
+const HORSE_PAL = ["A", "B"].map((v) => { const cnt = new Map(); for (const [, hex] of HORSE_DATA.parts[v].body) if (hex !== BLANKET) cnt.set(hex, (cnt.get(hex) || 0) + 1); return [...cnt.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5).map(([h]) => new THREE.Color().setHex(parseInt(h, 16))); });
+const HORSE_POP = .75;   // share of charge horses that burst rather than bolt
+function popHorse(h) {
+  const i = horses.indexOf(h); if (i < 0) return;
+  horses.splice(i, 1);
+  // break apart along the body: rump, saddle (with the team blanket), neck and head
+  const fx = Math.sin(h.yaw), fz = Math.cos(h.yaw), pal = HORSE_PAL[h.v];
+  for (const [k, y, n, extra] of [[-.8, .9, 30, null], [0, 1.0, 40, TEAM_COL[h.team]], [.8, 1.3, 30, null], [1.0, .4, 16, null]])
+    burst(_v.set(h.x + fx * k, y, h.z + fz * k), extra ? [...pal, extra, extra] : pal, n, 1.5, .2);
+  sfx("bonk");
+}
 const HPIV = Object.fromEntries(Object.entries(HORSE_DATA.piv).map(([k, v]) => [k, new THREE.Vector3(v[0] * HK, v[1] * HK, v[2] * HK)]));
 const LEG_PIV = [HPIV.Leg0, HPIV.Leg1, HPIV.Leg2, HPIV.Leg3];
 // one gallop cycle sampled from the Blender actions, looped by phase (in Blender frames)
@@ -1080,7 +1092,7 @@ function clash(a, b) {
   const mid = _v.set((a.pos.x + b.pos.x) / 2, 1.3, (a.pos.z + b.pos.z) / 2);
   burst(mid, [TEAM_COL[0], TEAM_COL[1], new THREE.Color(0xffffff), new THREE.Color(0x8a6a45)], 40, 1.4, .16);
   cam.shake = Math.max(cam.shake, .6); sfx("bonk");
-  const loser = (x, by) => { x.hp = 0; killSoldier(x, _v2.set(x.pos.x - by.pos.x, 0, x.pos.z - by.pos.z), by); x.vel.multiplyScalar(1.6).setY(rnd(7, 10)); };
+  const loser = (x, by) => { const h = x.cav; x.hp = 0; killSoldier(x, _v2.set(x.pos.x - by.pos.x, 0, x.pos.z - by.pos.z), by); x.vel.multiplyScalar(1.6).setY(rnd(7, 10)); if (h && Math.random() < HORSE_POP) popHorse(h); };
   if (a.winner || b.winner) {
     const w = a.winner ? a : b, l = w === a ? b : a;
     loser(l, w); w.hp = CAV_VET_HP; w.cav.charge = null;
